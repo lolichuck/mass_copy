@@ -30,10 +30,6 @@ function Get-File()
 Write-Host "Выберите файл, который необходимо скопировать и устаовить"
 $file = Get-File
 
-$file.GetType()
-$file.ForEach(
-
-
 if ($file.ToString() -match "Cancel")
 {
     Write-Host "Выбран файл $file" -ForegroundColor Yellow
@@ -85,9 +81,3 @@ foreach($address in $addresses)
 
 #Удаляем лишние переменные
 Remove-Variable -Name setupFolder, fileName, file, addressesList, addresses, address
-
-
-
-
-
-

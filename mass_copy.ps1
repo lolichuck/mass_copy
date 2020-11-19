@@ -35,6 +35,22 @@ function Get-File()
         return $OpenFileDialog.FileName
     }
 }
+Write-Host "Укажите адрес устройства или пропустите следующий пункт, чтобы выьбрать файл с адресами"
+$addresses = Read-Host "Введите IP: "
+if (!$addresses)
+{
+    #Выбираем файл с адресами
+    Write-Host "Выберите файл с IP-адресами`: " -NoNewLine
+    $addressesList = Get-File $file -extention "Text file | *.txt"
+    if ($file -ne $False)
+    {
+        Write-Host "$addressesList" -ForegroundColor Yellow
+        $addresses = Get-Content $addressesList
+    } else {
+        Write-Host "Файл с адресами не выбран!" -ForegroundColor Red
+        Break
+    }
+}
 
 #Выбираем файл для копирования
 Write-Host "Выберите файл, который необходимо скопировать и устаовить`: " -NoNewLine
@@ -45,18 +61,6 @@ if ($file -ne $False)
     Write-Host "$filename" -ForegroundColor Yellow
 } else {
     Write-Host "Файл установщика не выбран!" -ForegroundColor Red
-    Break
-}
-
-#Выбираем файл с адресами
-Write-Host "Выберите файл с IP-адресами`: " -NoNewLine
-$addressesList = Get-File $file -extention "Text file | *.txt"
-if ($file -ne $False)
-{
-    Write-Host "$addressesList" -ForegroundColor Yellow
-    $addresses = Get-Content $addressesList
-} else {
-    Write-Host "Файл с адресами не выбран!" -ForegroundColor Red
     Break
 }
 
@@ -74,7 +78,7 @@ foreach($address in $addresses)
         } 
         else 
         {   
-            Write-Host "Копируем файл... "
+            Write-Host "Копируем файл... " -NoNewline
             Copy-Item $file \\$address\c$\setup\$filename
             if(Test-Path "\\$address\c$\setup\$filename")
             {

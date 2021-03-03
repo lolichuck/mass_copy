@@ -2,7 +2,9 @@
 
 #Переменные
 $setupFolder = "c:\setup"
-$filename
+$pathList = @{
+    'adobe' = '\Build'
+}
 
 #Метод для выбора папки с исходжными файлами
 function Get-Folder()
@@ -35,8 +37,9 @@ function Get-File()
         return $OpenFileDialog.FileName
     }
 }
+
 Write-Host "Укажите адрес устройства или пропустите следующий пункт, чтобы выьбрать файл с адресами"
-$addresses = Read-Host "Введите IP: "
+$addresses = Read-Host "Введите IP"
 if (!$addresses)
 {
     #Выбираем файл с адресами
@@ -64,41 +67,37 @@ if ($file -ne $False)
     Break
 }
 
-foreach($address in $addresses)
+workflow Install-Copyed
 {
-    $isAvailable = $false
-    Write-Host "$address`:`t" -NoNewline
-    #Копируем файл
-    if ((Test-Connection $address -Quiet) -eq $True) {
+    foreach -Parallel ($address in $addresses)
+    {
+            $isAvailable = $false
+            #Копируем файл
+            if ((Test-Connection $address -Quiet) -eq $True) {
             
-        if(Test-Path "\\$address\c$\setup\$filename")
-        {
-            Write-Host -ForegroundColor Green "Установочный файл уже находится в папке установки. " -NoNewline
-            $isAvailable = $True
-        } 
-        else 
-        {   
-            Write-Host "Копируем файл... " -NoNewline
-            Copy-Item $file \\$address\c$\setup\$filename
-            if(Test-Path "\\$address\c$\setup\$filename")
+                if((Test-Path "\\$address\c$\setup\$filename") -and  ($force_option -ne "y"))
+                {
+                    $isAvailable = $True
+                } 
+                else 
+                {   
+                    Copy-Item -Force $file \\$address\c$\setup\$filename
+                    if(Test-Path "\\$address\c$\setup\$filename")
+                    {
+                        $isAvailable = $True
+                    }           
+            } 
+            #Устанавливаем Файл
+            if ($isAvailable -eq $True)
             {
-                Write-Host "Файл скопирован!"
-                $isAvailable = $True
-            }    
-        }            
-    } 
-    else 
-    {
-        Write-Host "Хост недоступен." -ForegroundColor Red
-    }
-    #Устанавливаем Файл
-    if ($isAvailable -eq $True)
-    {
-        Write-Host ""
-        &PsExec "\\$address" msiexec /i "$setupfolder\$filename" | Out-Null
-    }
-    Write-Host
-}
+                #&PsExec "\\$address" msiexec /i "$setupfolder\$filename" /qn | Out-Null
+            }
 
-#Удаляем лишние переменные
-Remove-Variable -Name setupFolder, fileName, file, addressesList, addresses, address, isAvailable -ErrorAction "SilentlyContinue"
+            #Удаляем лишние переменные
+            #Remove-Variable -Name setupFolder, fileName, file, addressesList, addresses, address, isAvailable -ErrorAction "SilentlyContinue"
+
+            #Write "Выполнение завершено. Нажмите любую кнопку, чтобы закрыть окно..."
+            #[System.Console]::ReadKey();
+        }
+    }
+}

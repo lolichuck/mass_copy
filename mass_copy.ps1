@@ -1,103 +1,70 @@
 ﻿Clear-Host
 
-#Переменные
-$setupFolder = "c:\setup"
-$pathList = @{
-    'adobe' = '\Build'
-}
-
-#Метод для выбора папки с исходжными файлами
-function Get-Folder()
-{
-    [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") |
-    Out-Null
-    $OpenFolderDialog = New-Object System.Windows.Forms.FolderBrowserDialog
-    $OpenFolderDialog.SelectedPath = $HOME
-    $OpenFolderDialog.ShowNewFolderButton = $false
-    $OpenFolderDialog.ShowDialog() | Out-Null
-}
-
-#Метод для вызова проводника
-function Get-File()
-{   
-    param 
-    (
-        $Extention
+#Pick up items
+function Get-FileDialog() {
+    param (
+        [Parameter()][switch] $Folder,
+        [string]$Filter,
+        [string]$Header
     )
-
-    [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") |
-    Out-Null
-
+    [void][System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms")
     $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-    $OpenFileDialog.Filter = $Extention
+    $OpenFileDialog.Title = $Header
+    $OpenFileDialog.Filter = $Filter
     $result = $OpenFileDialog.ShowDialog()
     if ($result -eq [System.Windows.Forms.DialogResult]::Cancel){
-        return $false
+        break
     } else {
         return $OpenFileDialog.FileName
     }
 }
 
-Write-Host "Укажите адрес устройства или пропустите следующий пункт, чтобы выьбрать файл с адресами"
-$addresses = Read-Host "Введите IP"
-if (!$addresses)
-{
-    #Выбираем файл с адресами
-    Write-Host "Выберите файл с IP-адресами`: " -NoNewLine
-    $addressesList = Get-File $file -extention "Text file | *.txt"
-    if ($file -ne $False)
-    {
-        Write-Host "$addressesList" -ForegroundColor Yellow
-        $addresses = Get-Content $addressesList
+#Check file into archive
+Function Check-ZippedFiles() {
+    param (
+        [Parameter(Mandatory)][string] $Path
+    )
+
+    [void][System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem')
+    if ([IO.Compression.ZipFile]::OpenRead($Path).Entries.FullName -match "info.json") {
+        return $true
     } else {
-        Write-Host "Файл с адресами не выбран!" -ForegroundColor Red
-        Break
+        return $false
     }
 }
 
-#Выбираем файл для копирования
-Write-Host "Выберите файл, который необходимо скопировать и устаовить`: " -NoNewLine
-$file = Get-File -extention "MSI/EXE Installer | *.msi; *.exe"
-if ($file -ne $False)
-{
-    $filename = (Get-ItemProperty $file).Name
-    Write-Host "$filename" -ForegroundColor Yellow
-} else {
-    Write-Host "Файл установщика не выбран!" -ForegroundColor Red
-    Break
-}
+#Copy and install items
+function Copy-Installation() {
+    [CmdletBinding(SupportsShouldProcess)]
+    param (
+        [Parameter()] [switch] $File,
+        [Parameter()] [string[]] $Address
+    )
 
-workflow Install-Copyed
-{
-    foreach -Parallel ($address in $addresses)
-    {
-            $isAvailable = $false
-            #Копируем файл
-            if ((Test-Connection $address -Quiet) -eq $True) {
-            
-                if((Test-Path "\\$address\c$\setup\$filename") -and  ($force_option -ne "y"))
-                {
-                    $isAvailable = $True
-                } 
-                else 
-                {   
-                    Copy-Item -Force $file \\$address\c$\setup\$filename
-                    if(Test-Path "\\$address\c$\setup\$filename")
-                    {
-                        $isAvailable = $True
-                    }           
+    if ($File.IsPresent) {
+        $Address = Get-Content (Get-FileDialog -Filter "Text File | *.txt" -Header "Выберите файл с адресами")
+    } 
+
+    $Item = Get-FileDialog -Filter "Zip Folder | *.zip" -Header "Выберите архив" | Get-ItemProperty
+    if (Check-ZippedFiles -Path $Item.FullName) {         
+        $Address | ForEach-Object -Parallel {
+            if (Test-Connection $_ -Quiet) {
+                if (!(Test-Path -Path "\\$_\c$\setup\uni\")) {
+                    New-Item -ItemType Directory -Path "\\$_\c$\setup\uni\"
+                }
+                Copy-Item $using:Item -Destination "\\$_\c$\setup\uni\"
+                Copy-Item "unpack_n_install.ps1" -Destination "\\$_\c$\setup\uni\" | Set-ItemProperty 
+                $setupPath = ("C:\Setup\uni\" + $using:Item.Name).ToString()
+                if (Test-Path $setupPath) {
+                    &PsExec /i "\\$_" powershell.exe -executionpolicy bypass -file C:\SetUp\uni\unpack_n_install.ps1 ($using:Item.Name).ToString()  
+                }
             } 
-            #Устанавливаем Файл
-            if ($isAvailable -eq $True)
-            {
-                #&PsExec "\\$address" msiexec /i "$setupfolder\$filename" /qn | Out-Null
-            }
-
-            #Удаляем лишние переменные
-            #Remove-Variable -Name setupFolder, fileName, file, addressesList, addresses, address, isAvailable -ErrorAction "SilentlyContinue"
-
-            #Write "Выполнение завершено. Нажмите любую кнопку, чтобы закрыть окно..."
-            #[System.Console]::ReadKey();
-        }
+        } -ThrottleLimit 16
+    } else {
+        Write-Host "Config file no found here"
+        Write-Host "Press any key to close..."
+        [System.Console]::ReadKey()
     }
 }
+
+Copy-Installation -File 

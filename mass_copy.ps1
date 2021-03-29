@@ -2,8 +2,7 @@
 
 #Copy and install items
 function Copy-Installation() {
-    
-
+ 
 
     [CmdletBinding(SupportsShouldProcess)]
     param (
@@ -58,12 +57,9 @@ function Copy-Installation() {
                 if (!(Test-Path -Path "\\$_\c$\setup\uni\")) {
                     New-Item -ItemType Directory -Path "\\$_\c$\setup\uni\"
                 }
-                Copy-Item $using:Item -Destination "\\$_\c$\setup\uni\"
-                Copy-Item "unpack_n_install.ps1" -Destination "\\$_\c$\setup\uni\"
-                $setupPath = ("C:\Setup\uni\" + $using:Item.Name).ToString()
-                if (Test-Path $setupPath) {
-                    &PsExec /i "\\$_" powershell.exe -executionpolicy bypass -file C:\SetUp\uni\unpack_n_install.ps1 ($using:Item.Name).ToString()  
-                }
+                # Copy-Item $using:Item -Destination "\\$_\c$\setup\uni\"
+                Copy-Item "unpack_n_install.ps1" -Destination "\\$_\c$\setup\uni\" -Force
+                &PsExec /i "\\$_" powershell.exe -executionpolicy bypass -file C:\SetUp\uni\unpack_n_install.ps1 ($using:Item.Name).ToString() ($using:Item.FullName).ToString()  
             } 
         } -ThrottleLimit $ThrottleLimit
     } else {
@@ -72,5 +68,3 @@ function Copy-Installation() {
         [System.Console]::ReadKey()
     }
 }
-
-Copy-Installation -Address 192.168.4.76 -ThrottleLimit

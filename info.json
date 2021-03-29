@@ -1,7 +1,4 @@
-{
-    "name":"",
-    "installerPath":"",
-    "installWith":"",
-    "args": [],
-    "order":[]
-}
+[{
+    "installWith": "",
+    "args": ""
+}]

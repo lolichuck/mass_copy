@@ -4,56 +4,67 @@ param (
     [string]$FullPath
 )
 
-$setupFolder = "C:\\SetUp\\uni\\"
+$setupFolder = "C:\SetUp\uni\"
 $installFolder = ("C:\Setup\uni\" + $UniArchive.Replace('.zip', '').ToString())
 
-function Get-Archive {
-    # Пока только чере SMB, позже запилю FTP
-    $copyFromSMB = "\\" + $env:Computername + "\" + $FullPath.Replace(":", "$")
-    Copy-Item $copyFromSMB -Destination $setupFolder
-}
+# function Get-Archive ($URL) {
+#     try {
+#         $webClient = New-Object System.Net.WebClient
+#         $webClient.DownloadFile($FTPAddress, $setupFolder)
+#     }
+#     catch {
+#         $Error | Out-File C:\SetUp\log.txt -Append -NoClobber
+#     }
+# }
 
 function Unpack-Archive {
     param (
         [Parameter(ValueFromPipeline)][string] $Path
     )
-
-    if ([System.IO.File]::Exists($installFolder)) {
-        Remove-Item -Path $folder -Recurse
-    }
-
-    if(!(Test-Path "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\")){
-        [void][System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem')
-        [IO.Compression.ZipFile]::ExtractToDirectory("$setupFolder\$UniArchive", ($installFolder))
-    } else {
-        try {
-            & "${env:ProgramFiles}\7-Zip\7z.exe" x "$setupFolder\$UniArchive" "-o$($installFolder)" -y
-        } 
-        catch {
-            write "Extraction Error!" | Out-File -FilePath "$setupFolder\log.txt"
+    try {
+        if ([System.IO.File]::Exists($installFolder)) {
+            try {
+                Remove-Item -Path $folder -Recurse -Force
+                Remove-Item -Path $installFolder -Recurse -Force
+            }
+            catch {
+                Write-Host "Extraction Error!" | Out-File -FilePath "$setupFolder\log.txt"
+            }
         }
-    }
 
-    Remove-Item "$setupFolder\$UniArchive"
-    return $installFolder
+        if(!(Test-Path "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\")){
+            [void][System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem')
+            [IO.Compression.ZipFile]::ExtractToDirectory("$setupFolder\$UniArchive", ($installFolder))
+        } else {
+            try {
+                & "${env:ProgramFiles}\7-Zip\7z.exe" x "$setupFolder\$UniArchive" "-o$($installFolder)" -y
+            } 
+            catch {
+                write "Extraction Error!" | Out-File -FilePath "$setupFolder\log.txt"
+            }
+        }
+
+        Remove-Item "$setupFolder\$UniArchive"
+        return $installFolder
+    }
+    catch {
+        $Error | Out-File C:\SetUp\log.txt -Append -NoClobber
+    }
 }
+
  function Install-Archive() {
     param (
         [Parameter(ValueFromPipeline)][string]$UniArchiveFolder
     )
 
-    cd $installFolder
-    
-    $info = Get-Content -Raw ".\info.json"| ConvertFrom-Json
+    $info = Get-Content -Raw "$installFolder\info.json"| ConvertFrom-Json
     foreach($unit in $info) {
         if ($unit.installWith -match ".msi") {
             &msiexec /i $unit.args ($UniArchiveFolder + $unit.installWith)
         } else {
-            &($UniArchiveFolder + "\" + $unit.installWith
-            ) $unit.args
+            &($UniArchiveFolder + "\" + $unit.installWith) $unit.args
         }
     }
  }
  
-Get-Archive
 Unpack-Archive | Install-Archive

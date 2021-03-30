@@ -1,10 +1,6 @@
-﻿Clear-Host
-
-#Copy and install items
+﻿#Copy and install items
 function Copy-Installation() {
- 
-
-    [CmdletBinding(SupportsShouldProcess)]
+     [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter()][switch] $File,
         [Parameter()][string[]] $Address,
@@ -39,9 +35,7 @@ function Copy-Installation() {
         [void][System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem')
         if ([IO.Compression.ZipFile]::OpenRead($Path).Entries.FullName -match "info.json") {
             return $true
-        } else {
-            return $false
-        }
+        } 
     }
 
     ################################################################################################################################
@@ -50,16 +44,19 @@ function Copy-Installation() {
         $Address = Get-Content (Get-FileDialog -Filter "Text File | *.txt" -Header "Выберите файл с адресами")
     } 
 
-    $Item = Get-FileDialog -Filter "Zip Folder | *.zip" -Header "Выберите архив" | Get-ItemProperty
+    $Item = Get-FileDialog -Filter "Zip Folder | *.zip" -Header "Выберите архив"
     if (Check-ZippedFiles -Path $Item.FullName) {         
         $Address | ForEach-Object -Parallel {
             if (Test-Connection $_ -Quiet) {
                 if (!(Test-Path -Path "\\$_\c$\setup\uni\")) {
                     New-Item -ItemType Directory -Path "\\$_\c$\setup\uni\"
                 }
-                # Copy-Item $using:Item -Destination "\\$_\c$\setup\uni\"
-                Copy-Item "unpack_n_install.ps1" -Destination "\\$_\c$\setup\uni\" -Force
-                &PsExec /i "\\$_" powershell.exe -executionpolicy bypass -file C:\SetUp\uni\unpack_n_install.ps1 ($using:Item.Name).ToString() ($using:Item.FullName).ToString()  
+                if (!(Test-Path "\\$_\c$\setup\uni\" + ($using:Item.Name).Replace('.zip', '').ToString()))
+                {
+                    Copy-Item $using:Item -Destination "\\$_\c$\setup\uni\"
+                    Copy-Item "unpack_n_install.ps1" -Destination "\\$_\c$\setup\uni\" -Force
+                }
+                &PsExec "\\$_" powershell.exe -executionpolicy bypass -file C:\SetUp\uni\unpack_n_install.ps1 ($using:Item.Name).ToString() ($using:Item.FullName).ToString() 
             } 
         } -ThrottleLimit $ThrottleLimit
     } else {

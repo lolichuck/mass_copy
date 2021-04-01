@@ -6,6 +6,7 @@ param (
 
 $setupFolder = "C:\SetUp\uni\"
 $installFolder = ("C:\Setup\uni\" + $UniArchive.Replace('.zip', '').ToString())
+$logFile = $setupFolde + "log.txt"
 
 # function Get-Archive ($URL) {
 #     try {
@@ -60,9 +61,11 @@ function Unpack-Archive {
     $info = Get-Content -Raw "$installFolder\info.json"| ConvertFrom-Json
     foreach($unit in $info) {
         if ($unit.installWith -match ".msi") {
-            &msiexec /i $unit.args ($UniArchiveFolder + $unit.installWith)
+            # &msiexec /i $unit.args ($UniArchiveFolder + $unit.installWith)
+            Write-Host $unit.args ($UniArchiveFolder + $unit.installWith) | Out-File $logFile
         } else {
-            &($UniArchiveFolder + "\" + $unit.installWith) $unit.args
+            # &($UniArchiveFolder + $unit.installWith) $unit.args
+            Write-Host ($UniArchiveFolder + $unit.installWith) $unit.args | Out-File $logFile
         }
     }
  }

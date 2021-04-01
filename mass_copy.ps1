@@ -3,11 +3,11 @@ function Copy-Installation() {
      [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter()][switch] $File,
-        [Parameter()][string[]] $Address,
+        [Parameter(Mandatory)][string[]] $Address,
         [Parameter()][ValidateRange(1,255)][int] $ThrottleLimit
     )
 
-        #Pick up items
+    #Pick up items
     function Get-FileDialog() {
         param (
             [Parameter()][switch] $Folder,
@@ -38,20 +38,20 @@ function Copy-Installation() {
         } 
     }
 
-    ################################################################################################################################
-
     if ($File.IsPresent) {
         $Address = Get-Content (Get-FileDialog -Filter "Text File | *.txt" -Header "Выберите файл с адресами")
     } 
 
-    $Item = Get-FileDialog -Filter "Zip Folder | *.zip" -Header "Выберите архив"
-    if (Check-ZippedFiles -Path $Item.FullName) {         
+    Write-Host "Addr is $Address"
+
+    $Item = Get-FileDialog -Filter "Zip Folder | *.zip" -Header "Выберите архив" | Get-ItemProperty
+    if (Check-ZippedFiles -Path $Item) {         
         $Address | ForEach-Object -Parallel {
             if (Test-Connection $_ -Quiet) {
                 if (!(Test-Path -Path "\\$_\c$\setup\uni\")) {
                     New-Item -ItemType Directory -Path "\\$_\c$\setup\uni\"
                 }
-                if (!(Test-Path "\\$_\c$\setup\uni\" + ($using:Item.Name).Replace('.zip', '').ToString()))
+                if (!(Test-Path ("\\$_\c$\setup\uni\" + (($using:Item).Name).Replace('.zip', '').ToString())))
                 {
                     Copy-Item $using:Item -Destination "\\$_\c$\setup\uni\"
                     Copy-Item "unpack_n_install.ps1" -Destination "\\$_\c$\setup\uni\" -Force
@@ -65,3 +65,5 @@ function Copy-Installation() {
         [System.Console]::ReadKey()
     }
 }
+
+Copy-Installation -ThrottleLimit 5 -Address 10.12.12.101
